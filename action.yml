@@ -32,7 +32,7 @@ inputs:
     default: "false"
     required: false
     description: skip role session tagging
-  helm-repository:
+  helm-registry:
     default: "ECR"
     required: false
     description: helm repository
@@ -71,7 +71,7 @@ runs:
   steps:
 
     - name: Check current role
-      if: ${{ inputs.docker-registry == 'ECR' }}
+      if: ${{ inputs.helm-registry == 'ECR' }}
       id: get-role
       shell: bash
       run: |
@@ -80,7 +80,7 @@ runs:
           | tee -a $GITHUB_OUTPUT
 
     - name: Configure AWS Credentials
-      if: ${{ inputs.docker-registry == 'ECR' && steps.get-role.outputs.current_role != inputs.role-arn }}
+      if: ${{ inputs.helm-registry == 'ECR' && steps.get-role.outputs.current_role != inputs.role-arn }}
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ inputs.role-arn }}
@@ -91,7 +91,7 @@ runs:
         role-chaining: true
 
     - name: Login to Amazon ECR
-      if: ${{ inputs.docker-registry == 'ECR' }}
+      if: ${{ inputs.helm-registry == 'ECR' }}
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
       with:
@@ -99,7 +99,7 @@ runs:
 
     - name: set env values
       env:
-        HELM_REPOSITORY: ${{ inputs.docker-registry == 'ECR' && steps.login-ecr.outputs.registry || inputs.docker-registry }}
+        HELM_REPOSITORY: ${{ inputs.helm-registry == 'ECR' && steps.login-ecr.outputs.registry || inputs.helm-registry }}
       shell: bash
       run: |
         if [ -n "${HELM_REPOSITORY}" ] ; then
@@ -115,7 +115,7 @@ runs:
         find ./ -mindepth 1 -maxdepth 1 -type d |xargs helm package
 
     - name: create repo if missing
-      if: ${{ inputs.docker-registry == 'ECR' }}
+      if: ${{ inputs.helm-registry == 'ECR' }}
       shell: bash
       run: |
         set +o errexit
