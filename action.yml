@@ -32,7 +32,7 @@ inputs:
     default: "false"
     required: false
     description: skip role session tagging
-  helm-reposirory:
+  helm-repository:
     default: "ECR"
     required: false
     description: helm repository
