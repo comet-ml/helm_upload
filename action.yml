@@ -1,0 +1,137 @@
+name: Upload Helm Charts
+description: Package and upload helm charts to AWS
+inputs:
+  registry-alias:
+    default: ${{ github.repository_owner }}
+    required: false
+    description: repository alias
+  repository:
+    default: ${{ github.event.repository.name }}
+    required: false
+    description: repository name
+  extra-tags:
+    required: false
+    description: additional tags for image
+  aws-region:
+    default: "us-east-1"
+    required: false
+    description: aws region
+  role-duration-seconds:
+    default: "900"
+    required: false
+    description: aws role duration
+  role-arn:
+    default: ""
+    required: false
+    description: aws role arn to access ecr
+  role-session-name:
+    default: ""
+    required: false
+    description: aws role name to access resources
+  role-skip-session-tagging:
+    default: "false"
+    required: false
+    description: skip role session tagging
+  helm-reposirory:
+    default: "ECR"
+    required: false
+    description: helm repository
+  build-tag:
+    default: latest
+    required: true
+    description: tag for built image
+  lifecycle-policy:
+    required: true
+    description: lifecycle policy for repository, default policy is to delete untagged images in 3 days
+    default: |
+      {
+        "rules": [
+          {
+            "rulePriority": 1,
+            "description": "clean untagged",
+            "selection": {
+              "tagStatus": "untagged",
+              "countType": "sinceImagePushed",
+              "countUnit": "days",
+              "countNumber": 3
+            },
+            "action": {
+              "type": "expire"
+            }
+          }
+        ]
+      }
+outputs:
+  image-name:
+    value: ${{ steps.push.outputs.image_name}}
+    description: uploaded image name
+
+runs:
+  using: composite
+  steps:
+
+    - name: Check current role
+      if: ${{ inputs.docker-registry == 'ECR' }}
+      id: get-role
+      shell: bash
+      run: |
+        aws sts get-caller-identity --query Arn --output text \
+          | sed -r 's~^(.*):assumed-role/([^/]*)/.*~current_role=\1:role/\2~; s/:sts:/:iam:/' \
+          | tee -a $GITHUB_OUTPUT
+
+    - name: Configure AWS Credentials
+      if: ${{ inputs.docker-registry == 'ECR' && steps.get-role.outputs.current_role != inputs.role-arn }}
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.role-arn }}
+        role-session-name: ${{ inputs.role-session-name }}
+        aws-region: ${{ inputs.aws-region }}
+        role-skip-session-tagging: ${{ inputs.role-skip-session-tagging }}
+        role-duration-seconds: ${{ inputs.role-duration-seconds }}
+        role-chaining: true
+
+    - name: Login to Amazon ECR
+      if: ${{ inputs.docker-registry == 'ECR' }}
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+      with:
+        mask-password: true
+
+    - name: set env values
+      env:
+        HELM_REPOSITORY: ${{ inputs.docker-registry == 'ECR' && steps.login-ecr.outputs.registry || inputs.docker-registry }}
+      shell: bash
+      run: |
+        if [ -n "${HELM_REPOSITORY}" ] ; then
+          HELM_REPOSITORY="${HELM_REPOSITORY%/}/"
+        fi
+        echo "HELM_REPOSITORY=${HELM_REPOSITORY}" >> $GITHUB_ENV
+
+    - name: package helm charts
+      shell: bash
+      run: |
+        set -ex
+        cd charts
+        find ./ -mindepth 1 -maxdepth 1 -type d |xargs helm package
+
+    - name: create repo if missing
+      if: ${{ inputs.docker-registry == 'ECR' }}
+      shell: bash
+      run: |
+        set +o errexit
+        aws ecr describe-repositories --repository-names ${{ inputs.registry-alias }}/${{ inputs.repository }}
+        if [ $? -gt 0 ] ; then
+          aws ecr create-repository --repository-name ${{ inputs.registry-alias }}/${{ inputs.repository }}
+          aws ecr put-lifecycle-policy \
+            --repository-name ${{ inputs.registry-alias }}/${{ inputs.repository }} \
+            --lifecycle-policy-text '${{ inputs.lifecycle-policy }}'
+        fi
+
+    - name: push to repo
+      id: push
+      shell: bash
+      run: |
+        set -ex
+        aws ecr get-login-password --region us-east-1 \
+          | helm registry login --username AWS --password-stdin ${{ env.GITHUB_ENV }}
+        helm push charts/*.tgz oci://${{ env.GITHUB_ENV }}/${{ inputs.registry-alias }}/
