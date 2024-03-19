@@ -99,13 +99,13 @@ runs:
 
     - name: set env values
       env:
-        HELM_REPOSITORY: ${{ inputs.helm-registry == 'ECR' && steps.login-ecr.outputs.registry || inputs.helm-registry }}
+        HELM_REGISTRY: ${{ inputs.helm-registry == 'ECR' && steps.login-ecr.outputs.registry || inputs.helm-registry }}
       shell: bash
       run: |
-        if [ -n "${HELM_REPOSITORY}" ] ; then
-          HELM_REPOSITORY="${HELM_REPOSITORY%/}/"
+        if [ -n "${HELM_REGISTRY}" ] ; then
+          HELM_REGISTRY="${HELM_REGISTRY%/}/"
         fi
-        echo "HELM_REPOSITORY=${HELM_REPOSITORY}" >> $GITHUB_ENV
+        echo "HELM_REGISTRY=${HELM_REGISTRY}" >> $GITHUB_ENV
 
     - name: package helm charts
       shell: bash
@@ -133,5 +133,5 @@ runs:
       run: |
         set -ex
         aws ecr get-login-password --region us-east-1 \
-          | helm registry login --username AWS --password-stdin ${{ env.GITHUB_ENV }}
-        helm push charts/*.tgz oci://${{ env.GITHUB_ENV }}/${{ inputs.registry-alias }}/
+          | helm registry login --username AWS --password-stdin ${HELM_REGISTRY%/}
+        helm push charts/*.tgz oci://${HELM_REGISTRY%/}/${{ inputs.registry-alias }}/
