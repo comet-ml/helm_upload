@@ -71,7 +71,7 @@ runs:
   steps:
 
     - name: Check current role
-      if: ${{ inputs.helm-registry == 'ECR' }}
+      if: ${{ inputs.helm-registry == 'ECR' || startsWith(inputs.helm-registry, 's3://')}}
       id: get-role
       shell: bash
       run: |
@@ -80,7 +80,7 @@ runs:
           | tee -a $GITHUB_OUTPUT
 
     - name: Configure AWS Credentials
-      if: ${{ inputs.helm-registry == 'ECR' && steps.get-role.outputs.current_role != inputs.role-arn }}
+      if: ${{ (inputs.helm-registry == 'ECR' || startsWith(inputs.helm-registry, 's3://')) && steps.get-role.outputs.current_role != inputs.role-arn }}
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ inputs.role-arn }}
@@ -129,9 +129,20 @@ runs:
 
     - name: push to repo
       id: push
+      if: inputs.helm-registry == 'ECR'
       shell: bash
       run: |
         set -ex
         aws ecr get-login-password --region us-east-1 \
           | helm registry login --username AWS --password-stdin ${HELM_REGISTRY%/}
         helm push charts/*.tgz oci://${HELM_REGISTRY%/}/${{ inputs.registry-alias }}/
+
+    - name: Upload to helm repo
+      if: startsWith(inputs.helm-registry, 's3://')
+      shell: bash
+      run: |
+        set -ex
+        helm plugin install https://github.com/hypnoglow/helm-s3.git
+        helm s3 version
+        helm repo add comet-charts ${{ inputs.helm-registry }}
+        helm s3 push charts/*.tgz comet-charts
