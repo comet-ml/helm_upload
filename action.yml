@@ -114,7 +114,7 @@ runs:
     - name: prepare helm plugin
       shell: bash
       run: |
-        set -x
+        set -x +e
         find charts -name Chart.yaml | xargs grep -q 'repository:.*s3://' && \
           helm plugin install https://github.com/hypnoglow/helm-s3.git
 
@@ -152,7 +152,7 @@ runs:
       if: startsWith(inputs.helm-registry, 's3://')
       shell: bash
       run: |
-        set -x
+        set -x +e
         helm s3 version || \
           helm plugin install https://github.com/hypnoglow/helm-s3.git
         set -e
