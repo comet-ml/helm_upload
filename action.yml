@@ -114,7 +114,7 @@ runs:
     - name: prepare helm plugin
       shell: bash
       run: |
-        set -ex
+        set -x
         find charts -name Chart.yaml | xargs grep -q 'repository:.*s3://' && \
           helm plugin install https://github.com/hypnoglow/helm-s3.git
 
@@ -152,8 +152,9 @@ runs:
       if: startsWith(inputs.helm-registry, 's3://')
       shell: bash
       run: |
-        set -ex
+        set -x
         helm s3 version || \
           helm plugin install https://github.com/hypnoglow/helm-s3.git
+        set -e
         helm repo add current-repo ${{ inputs.helm-registry }}
         helm s3 push ${{ inputs.helm-push-extra }} charts/*.tgz current-repo
