@@ -116,7 +116,7 @@ runs:
       run: |
         set -ex
         cd charts
-        find ./ -mindepth 1 -maxdepth 1 -type d |xargs helm package
+        find ./ -mindepth 1 -maxdepth 1 -type d | xargs helm package --dependency-update
 
     - name: create repo if missing
       if: ${{ inputs.helm-registry == 'ECR' }}
