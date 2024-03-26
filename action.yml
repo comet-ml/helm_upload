@@ -111,6 +111,13 @@ runs:
         fi
         echo "HELM_REGISTRY=${HELM_REGISTRY}" >> $GITHUB_ENV
 
+    - name: prepare helm plugin
+      shell: bash
+      run: |
+        set -ex
+        find charts -name Chart.yaml | xargs grep -q 'repository:.*s3://' && \
+          helm plugin install https://github.com/hypnoglow/helm-s3.git
+
     - name: package helm charts
       shell: bash
       run: |
@@ -146,7 +153,7 @@ runs:
       shell: bash
       run: |
         set -ex
-        helm plugin install https://github.com/hypnoglow/helm-s3.git
-        helm s3 version
-        helm repo add comet-charts ${{ inputs.helm-registry }}
-        helm s3 push ${{ inputs.helm-push-extra }} charts/*.tgz comet-charts
+        helm s3 version || \
+          helm plugin install https://github.com/hypnoglow/helm-s3.git
+        helm repo add current-repo ${{ inputs.helm-registry }}
+        helm s3 push ${{ inputs.helm-push-extra }} charts/*.tgz current-repo
