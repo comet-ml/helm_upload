@@ -111,17 +111,11 @@ runs:
         fi
         echo "HELM_REGISTRY=${HELM_REGISTRY}" >> $GITHUB_ENV
 
-    - name: prepare helm plugin
-      shell: bash
-      run: |
-        set -x +e
-        find charts -name Chart.yaml | xargs grep -q 'repository:.*s3://' && \
-          helm plugin install https://github.com/hypnoglow/helm-s3.git || true
-
     - name: package helm charts
       shell: bash
       run: |
         set -ex
+        helm repo update
         cd charts
         find ./ -mindepth 1 -maxdepth 1 -type d | xargs helm package --dependency-update
 
