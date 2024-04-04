@@ -115,6 +115,7 @@ runs:
       shell: bash
       run: |
         set -ex
+        helm repo add current-repo ${HELM_REGISTRY}
         helm repo update
         cd charts
         find ./ -mindepth 1 -maxdepth 1 -type d | xargs helm package --dependency-update
@@ -150,5 +151,5 @@ runs:
         helm s3 version || \
           helm plugin install https://github.com/hypnoglow/helm-s3.git
         set -e
-        helm repo add current-repo ${{ inputs.helm-registry }}
+        
         helm s3 push ${{ inputs.helm-push-extra }} charts/*.tgz current-repo
