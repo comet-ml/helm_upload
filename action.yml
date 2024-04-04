@@ -111,6 +111,14 @@ runs:
         fi
         echo "HELM_REGISTRY=${HELM_REGISTRY}" >> $GITHUB_ENV
 
+    - name: install s3 plugin
+      if: startsWith(inputs.helm-registry, 's3://')
+      shell: bash
+      run: |
+        set -x +e
+        helm s3 version || \
+          helm plugin install https://github.com/hypnoglow/helm-s3.git
+
     - name: package helm charts
       shell: bash
       run: |
@@ -147,9 +155,5 @@ runs:
       if: startsWith(inputs.helm-registry, 's3://')
       shell: bash
       run: |
-        set -x +e
-        helm s3 version || \
-          helm plugin install https://github.com/hypnoglow/helm-s3.git
-        set -e
-        
+        set -xe
         helm s3 push ${{ inputs.helm-push-extra }} charts/*.tgz current-repo
