@@ -9,9 +9,6 @@ inputs:
     default: ${{ github.event.repository.name }}
     required: false
     description: repository name
-  extra-tags:
-    required: false
-    description: additional tags for image
   aws-region:
     default: "us-east-1"
     required: false
@@ -36,10 +33,18 @@ inputs:
     default: "ECR"
     required: false
     description: helm repository
-  build-tag:
-    default: latest
+  chart-name:
+    default: ""
+    required: false
+    description: specific chart name to package and publish
+  charts-path:
+    default: "charts"
     required: true
-    description: tag for built image
+    description: path to charts folder
+  chart-version:
+    default: ""
+    required: false
+    description: optional chart version to update
   helm-push-extra:
     default: ""
     required: false
@@ -65,10 +70,6 @@ inputs:
           }
         ]
       }
-outputs:
-  image-name:
-    value: ${{ steps.push.outputs.image_name}}
-    description: uploaded image name
 
 runs:
   using: composite
@@ -101,7 +102,7 @@ runs:
       with:
         mask-password: true
 
-    - name: set env values
+    - name: Set env values
       env:
         HELM_REGISTRY: ${{ inputs.helm-registry == 'ECR' && steps.login-ecr.outputs.registry || inputs.helm-registry }}
       shell: bash
@@ -111,7 +112,7 @@ runs:
         fi
         echo "HELM_REGISTRY=${HELM_REGISTRY}" >> $GITHUB_ENV
 
-    - name: install s3 plugin
+    - name: Install s3 plugin
       if: startsWith(inputs.helm-registry, 's3://')
       shell: bash
       run: |
@@ -119,16 +120,21 @@ runs:
         helm s3 version || \
           helm plugin install https://github.com/hypnoglow/helm-s3.git
 
-    - name: package helm charts
+    - name: Package helm charts
       shell: bash
       run: |
         set -ex
         helm repo add current-repo ${HELM_REGISTRY}
         helm repo update
-        cd charts
-        find ./ -mindepth 1 -maxdepth 1 -type d | xargs helm package --dependency-update
+        cd ${{inputs.charts-path}}
+        PACKAGE_COMMAND_FLAGS=$(if [[ "${inputs.chart-version}" != "" ]];then echo "--dependency-update --version ${inputs.chart-version}"; else echo "--dependency-update";fi)
+        if [[ "${{inputs.chart-name}}" != "" ]]; then
+          helm package ${{inputs.chart-name}} $PACKAGE_COMMAND_FLAGS
+        else
+          find ./ -mindepth 1 -maxdepth 1 -type d | xargs helm package $PACKAGE_COMMAND
+        fi
 
-    - name: create repo if missing
+    - name: Create ECR repo if missing
       if: ${{ inputs.helm-registry == 'ECR' }}
       shell: bash
       run: |
@@ -141,7 +147,7 @@ runs:
             --lifecycle-policy-text '${{ inputs.lifecycle-policy }}'
         fi
 
-    - name: push to repo
+    - name: Push to ECR repo
       id: push
       if: inputs.helm-registry == 'ECR'
       shell: bash
