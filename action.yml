@@ -126,16 +126,16 @@ runs:
         set -ex
         helm repo add current-repo ${HELM_REGISTRY}
         helm repo update
-        cd ${{inputs.charts-path}}
-        PACKAGE_COMMAND_FLAGS=$(if [[ "${inputs.chart-version}" != "" ]];then echo "--dependency-update --version ${inputs.chart-version}"; else echo "--dependency-update";fi)
-        if [[ "${{inputs.chart-name}}" != "" ]]; then
-          helm package ${{inputs.chart-name}} $PACKAGE_COMMAND_FLAGS
+        cd ${{ inputs.charts-path }}
+        PACKAGE_COMMAND_FLAGS=$(if [[ "${{ inputs.chart-version }}" != "" ]];then echo "--dependency-update --version ${{ inputs.chart-version }}"; else echo "--dependency-update";fi)
+        if [[ "${{ inputs.chart-name }}" != "" ]]; then
+          helm package ${{ inputs.chart-name }} $PACKAGE_COMMAND_FLAGS
         else
           find ./ -mindepth 1 -maxdepth 1 -type d | xargs helm package $PACKAGE_COMMAND
         fi
 
     - name: Create ECR repo if missing
-      if: ${{ inputs.helm-registry == 'ECR' }}
+      if: inputs.helm-registry == 'ECR' 
       shell: bash
       run: |
         set +o errexit
