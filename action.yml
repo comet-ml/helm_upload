@@ -165,4 +165,5 @@ runs:
         helm s3 push ${{ inputs.helm-push-extra }} charts/*.tgz current-repo
 
     - name: Cleanup
+      shell: bash
       run: helm repo remove current-repo
