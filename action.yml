@@ -107,6 +107,9 @@ runs:
         HELM_REGISTRY: ${{ inputs.helm-registry == 'ECR' && steps.login-ecr.outputs.registry || inputs.helm-registry }}
       shell: bash
       run: |
+        if [ "${{ inputs.helm-registry }}" = "ECR" ] ; then
+          HELM_REGISTRY="oci://${HELM_REGISTRY}"
+        fi
         if [ -n "${HELM_REGISTRY}" ] ; then
           HELM_REGISTRY="${HELM_REGISTRY%/}/"
         fi
