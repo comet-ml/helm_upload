@@ -134,7 +134,7 @@ runs:
         if [ "${{ inputs.chart-version }}" != "" ] ; then
           PACKAGE_COMMAND_FLAGS="${PACKAGE_COMMAND_FLAGS} --version ${{ inputs.chart-version }}"
         fi
-        if [[ "${{ inputs.chart-name }}" != "" ]]; then
+        if [[ "${{ inputs.chart-name }}" != "" && "${{ inputs.charts-path }}" != "." ]]; then
           helm package ${{ inputs.chart-name }} $PACKAGE_COMMAND_FLAGS
         elif [[ "${{ inputs.charts-path }}" == "." ]]; then
           helm package . $PACKAGE_COMMAND_FLAGS
