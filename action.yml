@@ -131,7 +131,7 @@ runs:
         if [ "${{ inputs.helm-registry }}" != "ECR" ] ; then
           helm repo add current-repo ${HELM_REGISTRY}
           helm repo update
-          PACKAGE_COMMAND_FLAGS="--dependency-update"
+          PACKAGE_COMMAND_FLAGS="--dependency-update --destination /tmp/.charts"
         fi
         cd ${{ inputs.charts-path }}
         if [ "${{ inputs.chart-version }}" != "" ] ; then
@@ -164,7 +164,7 @@ runs:
         set -ex
         aws ecr get-login-password --region us-east-1 \
           | helm registry login --username AWS --password-stdin ${HELM_REGISTRY%/}
-        for chart in charts/*.tgz ; do
+        for chart in /tmp/.charts/*.tgz ; do
           helm push ${{ inputs.helm-push-extra }} ${chart} oci://${HELM_REGISTRY%/}/${{ inputs.registry-alias }}/
         done
 
@@ -173,7 +173,7 @@ runs:
       shell: bash
       run: |
         set -xe
-        for chart in charts/*.tgz ; do
+        for chart in /tmp/.charts/*.tgz ; do
           helm s3 push ${{ inputs.helm-push-extra }} ${chart} current-repo
         done
 
